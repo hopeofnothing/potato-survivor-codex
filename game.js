@@ -1028,6 +1028,68 @@ function drawPixelPotato(x, y, size, blink = false) {
   rect(x + 0.8 * s, y - 0.7 * s, s, blink ? 0.35 * s : s);
   ctx.fillStyle = "#6f3f24";
   rect(x - 0.5 * s, y + 1.2 * s, s, 0.6 * s);
+  drawAccessoryLayers(x, y, s);
+}
+
+function hasAccessory(id) {
+  return accessoryLevel(id) > 0;
+}
+
+function drawAccessoryLayers(x, y, s) {
+  if (hasAccessory("butter")) {
+    ctx.fillStyle = "#ffd45d";
+    rect(x - 2.6 * s, y - 1.7 * s, 5.2 * s, 0.55 * s);
+    rect(x - 2.2 * s, y + 0.3 * s, 4.4 * s, 0.55 * s);
+    ctx.fillStyle = "#fff0a8";
+    rect(x - 1.3 * s, y - 2.15 * s, 2.6 * s, 0.5 * s);
+  }
+
+  if (hasAccessory("salt")) {
+    ctx.fillStyle = "#f8f3db";
+    rect(x - 2.8 * s, y - 2.6 * s, 0.5 * s, 0.5 * s);
+    rect(x + 2.4 * s, y - 1.8 * s, 0.5 * s, 0.5 * s);
+    rect(x - 3.2 * s, y + 0.8 * s, 0.5 * s, 0.5 * s);
+    ctx.fillStyle = "#9ee7f0";
+    rect(x + 2.8 * s, y + 0.7 * s, 0.45 * s, 0.45 * s);
+  }
+
+  if (hasAccessory("starch")) {
+    ctx.fillStyle = "#172414";
+    rect(x - 2.6 * s, y + 2.6 * s, 1.9 * s, 0.75 * s);
+    rect(x + 0.7 * s, y + 2.6 * s, 1.9 * s, 0.75 * s);
+    ctx.fillStyle = "#58c2cf";
+    rect(x - 2.2 * s, y + 2.1 * s, 1.1 * s, 0.55 * s);
+    rect(x + 1.1 * s, y + 2.1 * s, 1.1 * s, 0.55 * s);
+  }
+
+  if (hasAccessory("magnet")) {
+    ctx.fillStyle = "#de4f2f";
+    rect(x - 4.4 * s, y - 1.2 * s, 0.75 * s, 2.4 * s);
+    rect(x + 3.65 * s, y - 1.2 * s, 0.75 * s, 2.4 * s);
+    ctx.fillStyle = "#d7d3c6";
+    rect(x - 4.4 * s, y - 1.2 * s, 1.8 * s, 0.65 * s);
+    rect(x + 2.6 * s, y - 1.2 * s, 1.8 * s, 0.65 * s);
+  }
+
+  if (hasAccessory("timer")) {
+    ctx.fillStyle = "#172414";
+    rect(x - 1.4 * s, y - 4.4 * s, 2.8 * s, 1.6 * s);
+    ctx.fillStyle = "#f8f3db";
+    rect(x - 1.0 * s, y - 4.0 * s, 2.0 * s, 0.9 * s);
+    ctx.fillStyle = "#de4f2f";
+    rect(x - 0.1 * s, y - 3.95 * s, 0.25 * s, 0.65 * s);
+    rect(x - 0.1 * s, y - 3.95 * s, 0.7 * s, 0.25 * s);
+  }
+
+  if (hasAccessory("basket")) {
+    ctx.fillStyle = "#6f3f24";
+    rect(x + 3.2 * s, y + 0.6 * s, 1.4 * s, 2.4 * s);
+    ctx.fillStyle = "#c88b49";
+    rect(x + 3.45 * s, y + 0.9 * s, 0.25 * s, 1.8 * s);
+    rect(x + 4.05 * s, y + 0.9 * s, 0.25 * s, 1.8 * s);
+    rect(x + 3.25 * s, y + 1.45 * s, 1.35 * s, 0.25 * s);
+    rect(x + 3.25 * s, y + 2.15 * s, 1.35 * s, 0.25 * s);
+  }
 }
 
 function rect(x, y, w, h) {
