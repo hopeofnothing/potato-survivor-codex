@@ -22,59 +22,132 @@ const ui = {
   backToStartButton: document.querySelector("#backToStartButton"),
   resumeButton: document.querySelector("#resumeButton"),
   pauseButton: document.querySelector("#pauseButton"),
+  langButtons: document.querySelectorAll("[data-lang]"),
 };
 
 const keys = new Set();
 const pointer = { active: false, x: 0, y: 0 };
 const world = { width: 1280, height: 720 };
+let currentLang = "en";
+
+const i18n = {
+  en: {
+    title: "Potato Survivor",
+    tagline: "Hold the field, harvest XP, and turn one brave potato into a fully loaded fryer storm.",
+    startRun: "Start Run",
+    levelUp: "Level Up",
+    paused: "Paused",
+    resume: "Resume",
+    weapons: "Weapons",
+    accessories: "Accessories",
+    mashed: "Mashed",
+    tryAgain: "Try Again",
+    backToStart: "Back to Start",
+    hudLevel: "Level",
+    hudTime: "Time",
+    hudKos: "KOs",
+    emptySlot: "Empty slot",
+    noItems: "No items equipped.",
+    level: "level",
+    lv: "Lv",
+    newWeapon: "New weapon.",
+    newAccessory: "New accessory.",
+    levelOne: "Level 1",
+    current: "Current",
+    next: "Next",
+    survived: (level, time, kills) => `Level ${level} potato survived ${time} and cleared ${kills} enemies.`,
+  },
+  zh: {
+    title: "馬鈴薯倖存者",
+    tagline: "守住菜園、收集經驗，讓勇敢的馬鈴薯變成全副武裝的炸物風暴。",
+    startRun: "開始遊戲",
+    levelUp: "升級",
+    paused: "暫停",
+    resume: "繼續",
+    weapons: "武器",
+    accessories: "配件",
+    mashed: "變薯泥了",
+    tryAgain: "再試一次",
+    backToStart: "回到開始畫面",
+    hudLevel: "等級",
+    hudTime: "時間",
+    hudKos: "擊倒",
+    emptySlot: "空欄位",
+    noItems: "尚未裝備物品。",
+    level: "等級",
+    lv: "Lv",
+    newWeapon: "新武器。",
+    newAccessory: "新配件。",
+    levelOne: "等級 1",
+    current: "目前",
+    next: "下一級",
+    survived: (level, time, kills) => `等級 ${level} 的馬鈴薯存活 ${time}，擊倒 ${kills} 名敵人。`,
+  },
+};
+
+function tr(key) {
+  return i18n[currentLang][key];
+}
 
 const weaponCatalog = {
   fries: {
     id: "fries",
     name: "French Fries",
+    zhName: "薯條",
     icon: "F",
     type: "weapon",
     description: "Throws crispy fries at the nearest enemy.",
+    zhDescription: "朝最近的敵人投擲酥脆薯條。",
     maxLevel: 8,
   },
   ketchup: {
     id: "ketchup",
     name: "Ketchup Burst",
+    zhName: "番茄醬爆裂",
     icon: "K",
     type: "weapon",
     description: "Splats sticky sauce puddles that slow and damage enemies.",
+    zhDescription: "濺出黏稠醬池，使敵人緩速並受到傷害。",
     maxLevel: 8,
   },
   mash: {
     id: "mash",
     name: "Mash Mine",
+    zhName: "薯泥地雷",
     icon: "M",
     type: "weapon",
     description: "Drops hot mash behind you that bursts after a delay.",
+    zhDescription: "留下熱薯泥，短暫延遲後爆開。",
     maxLevel: 8,
   },
   peeler: {
     id: "peeler",
     name: "Peeler Orbit",
+    zhName: "削皮刀環繞",
     icon: "P",
     type: "weapon",
     description: "A spinning peeler circles the potato and shreds enemies.",
+    zhDescription: "旋轉削皮刀環繞馬鈴薯並切碎敵人。",
     maxLevel: 8,
   },
   tots: {
     id: "tots",
     name: "Tater Tots",
+    zhName: "薯球散射",
     icon: "T",
     type: "weapon",
     description: "Sprays short-range tots in all directions.",
+    zhDescription: "向四面八方噴射短距離薯球。",
     maxLevel: 8,
   },
   chip: {
     id: "chip",
     name: "Potato Chip Saw",
+    zhName: "洋芋片鋸刃",
     icon: "C",
     type: "weapon",
     description: "Fires wide chip blades that slice across the field.",
+    zhDescription: "發射寬大的洋芋片刀刃，切穿戰場。",
     maxLevel: 8,
   },
 };
@@ -83,49 +156,61 @@ const accessoryCatalog = {
   salt: {
     id: "salt",
     name: "Sea Salt",
+    zhName: "海鹽",
     icon: "S",
     type: "accessory",
     description: "Adds weapon damage.",
+    zhDescription: "增加武器傷害。",
     maxLevel: 5,
   },
   butter: {
     id: "butter",
     name: "Butter Jacket",
+    zhName: "奶油外套",
     icon: "B",
     type: "accessory",
     description: "Raises max health and heals a little.",
+    zhDescription: "提高最大生命，並恢復少量生命。",
     maxLevel: 5,
   },
   starch: {
     id: "starch",
     name: "Starch Boots",
+    zhName: "澱粉靴",
     icon: ">",
     type: "accessory",
     description: "Moves faster through the chaos.",
+    zhDescription: "在混亂中移動得更快。",
     maxLevel: 5,
   },
   magnet: {
     id: "magnet",
     name: "Gravy Magnet",
+    zhName: "肉汁磁鐵",
     icon: "G",
     type: "accessory",
     description: "Pulls XP from farther away.",
+    zhDescription: "從更遠距離吸取經驗。",
     maxLevel: 5,
   },
   timer: {
     id: "timer",
     name: "Oven Timer",
+    zhName: "烤箱計時器",
     icon: "O",
     type: "accessory",
     description: "Weapons fire more often.",
+    zhDescription: "讓武器更頻繁攻擊。",
     maxLevel: 5,
   },
   basket: {
     id: "basket",
     name: "Fryer Basket",
+    zhName: "油炸籃",
     icon: "+",
     type: "accessory",
     description: "Adds one extra projectile or orbiting blade per level.",
+    zhDescription: "每級增加一個投射物或環繞刀刃。",
     maxLevel: 5,
   },
 };
@@ -196,6 +281,26 @@ function showStartScreen() {
   updateHud();
 }
 
+function applyTranslations() {
+  document.documentElement.lang = currentLang === "zh" ? "zh-Hant" : "en";
+  for (const element of document.querySelectorAll("[data-i18n]")) {
+    element.textContent = tr(element.dataset.i18n);
+  }
+  for (const button of ui.langButtons) {
+    button.classList.toggle("active", button.dataset.lang === currentLang);
+  }
+  updateLoadout();
+  updateHud();
+  if (state?.mode === "paused") updatePauseDetails();
+  if (state?.mode === "levelup") renderLevelChoices();
+  if (state?.mode === "gameover") updateFinalStats();
+}
+
+function setLanguage(lang) {
+  currentLang = lang;
+  applyTranslations();
+}
+
 function formatTime(seconds) {
   const mins = Math.floor(seconds / 60).toString().padStart(2, "0");
   const secs = Math.floor(seconds % 60).toString().padStart(2, "0");
@@ -206,72 +311,126 @@ function formatPercent(value) {
   return `${Math.round(value * 100)}%`;
 }
 
+function itemName(item) {
+  return currentLang === "zh" ? item.zhName : item.name;
+}
+
+function itemDescription(item) {
+  return currentLang === "zh" ? item.zhDescription : item.description;
+}
+
 function weaponStats(id, level, effective = false) {
   const basket = effective ? projectileBonus() : 0;
   const damage = effective ? damageMultiplier() : 1;
   const cooldown = effective ? cooldownMultiplier() : 1;
 
   if (id === "fries") {
-    const stats = [
-      `${1 + Math.floor((level - 1) / 2) + basket} fries per volley`,
-      `${Math.round((11 + level * 4) * damage)} damage each`,
-      `${Math.max(0.18, (0.78 - level * 0.035) * cooldown).toFixed(2)}s cooldown`,
-      `${Math.floor(level / 4)} pierce`,
-    ];
-    if (level >= 8) stats.push("evolution: fires a matching rear volley");
+    const stats =
+      currentLang === "zh"
+        ? [
+            `每輪 ${1 + Math.floor((level - 1) / 2) + basket} 根薯條`,
+            `每根 ${Math.round((11 + level * 4) * damage)} 傷害`,
+            `${Math.max(0.18, (0.78 - level * 0.035) * cooldown).toFixed(2)} 秒冷卻`,
+            `${Math.floor(level / 4)} 穿透`,
+          ]
+        : [
+            `${1 + Math.floor((level - 1) / 2) + basket} fries per volley`,
+            `${Math.round((11 + level * 4) * damage)} damage each`,
+            `${Math.max(0.18, (0.78 - level * 0.035) * cooldown).toFixed(2)}s cooldown`,
+            `${Math.floor(level / 4)} pierce`,
+          ];
+    if (level >= 8) stats.push(currentLang === "zh" ? "進化：同時向後方發射同等齊射" : "evolution: fires a matching rear volley");
     return stats;
   }
 
   if (id === "ketchup") {
-    const stats = [
-      `${1 + Math.floor(level / 3) + basket} sauce blobs`,
-      `${46 + level * 5}px puddle radius`,
-      `${Math.round((8 + level * 3) * damage)} damage/sec`,
-      `${formatPercent(Math.min(0.62, 0.28 + level * 0.035))} slow`,
-    ];
-    if (level >= 8) stats.push("evolution: each splat creates satellite puddles");
+    const stats =
+      currentLang === "zh"
+        ? [
+            `${1 + Math.floor(level / 3) + basket} 顆醬汁彈`,
+            `${46 + level * 5}px 醬池半徑`,
+            `每秒 ${Math.round((8 + level * 3) * damage)} 傷害`,
+            `${formatPercent(Math.min(0.62, 0.28 + level * 0.035))} 緩速`,
+          ]
+        : [
+            `${1 + Math.floor(level / 3) + basket} sauce blobs`,
+            `${46 + level * 5}px puddle radius`,
+            `${Math.round((8 + level * 3) * damage)} damage/sec`,
+            `${formatPercent(Math.min(0.62, 0.28 + level * 0.035))} slow`,
+          ];
+    if (level >= 8) stats.push(currentLang === "zh" ? "進化：每次濺射會產生衛星醬池" : "evolution: each splat creates satellite puddles");
     return stats;
   }
 
   if (id === "mash") {
-    const stats = [
-      `${Math.round((24 + level * 7) * damage)} blast damage`,
-      `${Math.max(0.8, (2.9 - level * 0.1) * cooldown).toFixed(2)}s cooldown`,
-      "Delayed area explosion",
-    ];
-    if (level >= 8) stats.push("evolution: drops a triangle of mines");
+    const stats =
+      currentLang === "zh"
+        ? [
+            `${Math.round((24 + level * 7) * damage)} 爆炸傷害`,
+            `${Math.max(0.8, (2.9 - level * 0.1) * cooldown).toFixed(2)} 秒冷卻`,
+            "延遲範圍爆炸",
+          ]
+        : [
+            `${Math.round((24 + level * 7) * damage)} blast damage`,
+            `${Math.max(0.8, (2.9 - level * 0.1) * cooldown).toFixed(2)}s cooldown`,
+            "Delayed area explosion",
+          ];
+    if (level >= 8) stats.push(currentLang === "zh" ? "進化：以三角形放置 3 顆地雷" : "evolution: drops a triangle of mines");
     return stats;
   }
 
   if (id === "peeler") {
-    const stats = [
-      `${1 + Math.floor(level / 3) + basket} orbiting blades`,
-      `${72 + level * 5}px orbit radius`,
-      `${Math.round((18 + level * 5) * damage)} contact damage`,
-    ];
-    if (level >= 8) stats.push("evolution: adds a second counter-rotating orbit");
+    const stats =
+      currentLang === "zh"
+        ? [
+            `${1 + Math.floor(level / 3) + basket} 片環繞刀刃`,
+            `${72 + level * 5}px 環繞半徑`,
+            `${Math.round((18 + level * 5) * damage)} 接觸傷害`,
+          ]
+        : [
+            `${1 + Math.floor(level / 3) + basket} orbiting blades`,
+            `${72 + level * 5}px orbit radius`,
+            `${Math.round((18 + level * 5) * damage)} contact damage`,
+          ];
+    if (level >= 8) stats.push(currentLang === "zh" ? "進化：增加第二圈反向旋轉刀刃" : "evolution: adds a second counter-rotating orbit");
     return stats;
   }
 
   if (id === "tots") {
-    const stats = [
-      `${6 + Math.floor(level / 2) + basket} tots per burst`,
-      `${Math.round((8 + level * 3) * damage)} damage each`,
-      `${Math.max(0.7, (2.4 - level * 0.08) * cooldown).toFixed(2)}s cooldown`,
-      "Fires in every direction",
-    ];
-    if (level >= 8) stats.push("evolution: fires a second inner burst");
+    const stats =
+      currentLang === "zh"
+        ? [
+            `每次爆發 ${6 + Math.floor(level / 2) + basket} 顆薯球`,
+            `每顆 ${Math.round((8 + level * 3) * damage)} 傷害`,
+            `${Math.max(0.7, (2.4 - level * 0.08) * cooldown).toFixed(2)} 秒冷卻`,
+            "向所有方向發射",
+          ]
+        : [
+            `${6 + Math.floor(level / 2) + basket} tots per burst`,
+            `${Math.round((8 + level * 3) * damage)} damage each`,
+            `${Math.max(0.7, (2.4 - level * 0.08) * cooldown).toFixed(2)}s cooldown`,
+            "Fires in every direction",
+          ];
+    if (level >= 8) stats.push(currentLang === "zh" ? "進化：額外發射第二圈內側爆發" : "evolution: fires a second inner burst");
     return stats;
   }
 
   if (id === "chip") {
-    const stats = [
-      `${1 + Math.floor(level / 4) + basket} chip blades`,
-      `${Math.round((18 + level * 6) * damage)} damage each`,
-      `${4 + Math.floor(level / 2)} pierce`,
-      `${Math.max(0.55, (2.55 - level * 0.1) * cooldown).toFixed(2)}s cooldown`,
-    ];
-    if (level >= 8) stats.push("evolution: chip blades ricochet once");
+    const stats =
+      currentLang === "zh"
+        ? [
+            `${1 + Math.floor(level / 4) + basket} 片洋芋片刀刃`,
+            `每片 ${Math.round((18 + level * 6) * damage)} 傷害`,
+            `${4 + Math.floor(level / 2)} 穿透`,
+            `${Math.max(0.55, (2.55 - level * 0.1) * cooldown).toFixed(2)} 秒冷卻`,
+          ]
+        : [
+            `${1 + Math.floor(level / 4) + basket} chip blades`,
+            `${Math.round((18 + level * 6) * damage)} damage each`,
+            `${4 + Math.floor(level / 2)} pierce`,
+            `${Math.max(0.55, (2.55 - level * 0.1) * cooldown).toFixed(2)}s cooldown`,
+          ];
+    if (level >= 8) stats.push(currentLang === "zh" ? "進化：洋芋片刀刃可反彈一次" : "evolution: chip blades ricochet once");
     return stats;
   }
 
@@ -279,6 +438,14 @@ function weaponStats(id, level, effective = false) {
 }
 
 function accessoryStats(id, level) {
+  if (currentLang === "zh") {
+    if (id === "salt") return [`+${formatPercent(level * 0.16)} 武器傷害`];
+    if (id === "butter") return [`+${level * 14} 最大生命`, "升級時恢復 28 生命"];
+    if (id === "starch") return [`+${level * 22} 移動速度`];
+    if (id === "magnet") return [`${78 + level * 38}px 經驗吸取半徑`];
+    if (id === "timer") return [`${formatPercent(level * 0.08)} 更快武器冷卻`];
+    if (id === "basket") return [`支援武器 +${level} 個投射物或環繞刀刃`];
+  }
   if (id === "salt") return [`+${formatPercent(level * 0.16)} weapon damage`];
   if (id === "butter") return [`+${level * 14} max health`, "Heals 28 when upgraded"];
   if (id === "starch") return [`+${level * 22} movement speed`];
@@ -296,7 +463,7 @@ function describeItem(type, id, level, effective = false) {
 function describeUpgrade(type, id, fromLevel, toLevel) {
   const before = describeItem(type, id, fromLevel);
   const after = describeItem(type, id, toLevel);
-  return `Current: ${before}. Next: ${after}.`;
+  return `${tr("current")}: ${before}. ${tr("next")}: ${after}.`;
 }
 
 function getItem(collection, id) {
@@ -819,6 +986,11 @@ function collectGems(dt) {
 function openLevelUp() {
   state.mode = "levelup";
   levelChoices = buildChoices();
+  renderLevelChoices();
+  ui.levelOverlay.classList.add("active");
+}
+
+function renderLevelChoices() {
   ui.choices.innerHTML = "";
   for (const choice of levelChoices) {
     const button = document.createElement("button");
@@ -826,13 +998,35 @@ function openLevelUp() {
     button.type = "button";
     button.innerHTML = `
       <span class="choice-icon">${choice.icon}</span>
-      <strong class="choice-name">${choice.title}</strong>
-      <span class="choice-desc">${choice.description}</span>
+      <strong class="choice-name">${choiceTitle(choice)}</strong>
+      <span class="choice-desc">${choiceDescription(choice)}</span>
     `;
     button.addEventListener("click", () => applyChoice(choice));
     ui.choices.append(button);
   }
-  ui.levelOverlay.classList.add("active");
+}
+
+function choiceTitle(choice) {
+  const catalog = choice.type === "weapon" ? weaponCatalog[choice.id] : accessoryCatalog[choice.id];
+  if (choice.kind === "upgrade") {
+    const list = choice.type === "weapon" ? state.weapons : state.accessories;
+    const current = getItem(list, choice.id);
+    return `${itemName(catalog)} ${tr("lv")} ${current.level + 1}`;
+  }
+  return itemName(catalog);
+}
+
+function choiceDescription(choice) {
+  const catalog = choice.type === "weapon" ? weaponCatalog[choice.id] : accessoryCatalog[choice.id];
+  if (choice.kind === "upgrade") {
+    const list = choice.type === "weapon" ? state.weapons : state.accessories;
+    const current = getItem(list, choice.id);
+    return describeUpgrade(choice.type, choice.id, current.level, current.level + 1);
+  }
+  if (choice.type === "weapon") {
+    return `${tr("newWeapon")} ${itemDescription(catalog)} ${tr("levelOne")}: ${describeItem("weapon", choice.id, 1)}.`;
+  }
+  return `${tr("newAccessory")} ${describeItem("accessory", choice.id, 1)}.`;
 }
 
 function buildChoices() {
@@ -845,7 +1039,7 @@ function buildChoices() {
         type: "weapon",
         id: weapon.id,
         icon: catalog.icon,
-        title: `${catalog.name} Lv ${weapon.level + 1}`,
+        title: `${itemName(catalog)} ${tr("lv")} ${weapon.level + 1}`,
         description: describeUpgrade("weapon", weapon.id, weapon.level, weapon.level + 1),
       });
     }
@@ -859,8 +1053,8 @@ function buildChoices() {
           type: "weapon",
           id: item.id,
           icon: item.icon,
-          title: item.name,
-          description: `New weapon. ${item.description} Level 1: ${describeItem("weapon", item.id, 1)}.`,
+          title: itemName(item),
+          description: `${tr("newWeapon")} ${itemDescription(item)} ${tr("levelOne")}: ${describeItem("weapon", item.id, 1)}.`,
         });
       }
     }
@@ -874,7 +1068,7 @@ function buildChoices() {
         type: "accessory",
         id: accessory.id,
         icon: catalog.icon,
-        title: `${catalog.name} Lv ${accessory.level + 1}`,
+        title: `${itemName(catalog)} ${tr("lv")} ${accessory.level + 1}`,
         description: describeUpgrade("accessory", accessory.id, accessory.level, accessory.level + 1),
       });
     }
@@ -888,8 +1082,8 @@ function buildChoices() {
           type: "accessory",
           id: item.id,
           icon: item.icon,
-          title: item.name,
-          description: `New accessory. ${describeItem("accessory", item.id, 1)}.`,
+          title: itemName(item),
+          description: `${tr("newAccessory")} ${describeItem("accessory", item.id, 1)}.`,
         });
       }
     }
@@ -939,7 +1133,7 @@ function renderSlots(container, items, catalog) {
     const slot = document.createElement("div");
     slot.className = `slot${item ? "" : " empty"}`;
     slot.textContent = item ? `${catalog[item.id].icon}${item.level}` : "";
-    slot.title = item ? `${catalog[item.id].name} level ${item.level}` : "Empty slot";
+    slot.title = item ? `${itemName(catalog[item.id])} ${tr("level")} ${item.level}` : tr("emptySlot");
     container.append(slot);
   }
 }
@@ -954,7 +1148,7 @@ function renderDetails(container, items, catalog, type) {
   if (!items.length) {
     const empty = document.createElement("p");
     empty.className = "empty-detail";
-    empty.textContent = "No items equipped.";
+    empty.textContent = tr("noItems");
     container.append(empty);
     return;
   }
@@ -964,10 +1158,10 @@ function renderDetails(container, items, catalog, type) {
     card.className = "detail-card";
     card.innerHTML = `
       <div class="detail-title">
-        <strong>${catalog[item.id].icon} ${catalog[item.id].name}</strong>
-        <span>Lv ${item.level}</span>
+        <strong>${catalog[item.id].icon} ${itemName(catalog[item.id])}</strong>
+        <span>${tr("lv")} ${item.level}</span>
       </div>
-      <p>${catalog[item.id].description}</p>
+      <p>${itemDescription(catalog[item.id])}</p>
       <p>${describeItem(type, item.id, item.level, true)}.</p>
     `;
     container.append(card);
@@ -986,8 +1180,12 @@ function updateHud() {
 function endRun() {
   state.mode = "gameover";
   ui.pauseOverlay.classList.remove("active");
-  ui.finalStats.textContent = `Level ${state.player.level} potato survived ${formatTime(state.elapsed)} and cleared ${state.kills} enemies.`;
+  updateFinalStats();
   ui.gameOverOverlay.classList.add("active");
+}
+
+function updateFinalStats() {
+  ui.finalStats.textContent = tr("survived")(state.player.level, formatTime(state.elapsed), state.kills);
 }
 
 function update(dt) {
@@ -1271,9 +1469,13 @@ ui.restartButton.addEventListener("click", startRun);
 ui.backToStartButton.addEventListener("click", showStartScreen);
 ui.resumeButton.addEventListener("click", togglePause);
 ui.pauseButton.addEventListener("click", togglePause);
+for (const button of ui.langButtons) {
+  button.addEventListener("click", () => setLanguage(button.dataset.lang));
+}
 window.addEventListener("resize", resizeCanvas);
 
 state = freshState();
 resizeCanvas();
 updateLoadout();
+applyTranslations();
 requestAnimationFrame(loop);

@@ -14,15 +14,15 @@
         <div class="hud">
           <div class="hud-row">
             <div class="stat">
-              <span>Level</span>
+              <span data-i18n="hudLevel">Level</span>
               <strong id="level">1</strong>
             </div>
             <div class="stat">
-              <span>Time</span>
+              <span data-i18n="hudTime">Time</span>
               <strong id="time">00:00</strong>
             </div>
             <div class="stat">
-              <span>KOs</span>
+              <span data-i18n="hudKos">KOs</span>
               <strong id="kills">0</strong>
             </div>
             <button id="pauseButton" class="icon-button" type="button" aria-label="Pause game" title="Pause">
@@ -41,11 +41,11 @@
 
           <div class="loadout">
             <div>
-              <span class="loadout-label">Weapons</span>
+              <span class="loadout-label" data-i18n="weapons">Weapons</span>
               <div id="weaponSlots" class="slots"></div>
             </div>
             <div>
-              <span class="loadout-label">Accessories</span>
+              <span class="loadout-label" data-i18n="accessories">Accessories</span>
               <div id="accessorySlots" class="slots"></div>
             </div>
           </div>
@@ -54,15 +54,19 @@
         <div id="startOverlay" class="overlay active">
           <div class="panel title-panel">
             <div class="potato-mark" aria-hidden="true"></div>
-            <h1>Potato Survivor</h1>
-            <p>Hold the field, harvest XP, and turn one brave potato into a fully loaded fryer storm.</p>
-            <button id="startButton" class="primary-button" type="button">Start Run</button>
+            <h1 data-i18n="title">Potato Survivor</h1>
+            <p data-i18n="tagline">Hold the field, harvest XP, and turn one brave potato into a fully loaded fryer storm.</p>
+            <div class="language-toggle" aria-label="Language">
+              <button class="lang-button active" type="button" data-lang="en">EN</button>
+              <button class="lang-button" type="button" data-lang="zh">繁中</button>
+            </div>
+            <button id="startButton" class="primary-button" type="button" data-i18n="startRun">Start Run</button>
           </div>
         </div>
 
         <div id="levelOverlay" class="overlay">
           <div class="panel level-panel">
-            <h2>Level Up</h2>
+            <h2 data-i18n="levelUp">Level Up</h2>
             <div id="choices" class="choices"></div>
           </div>
         </div>
@@ -70,16 +74,22 @@
         <div id="pauseOverlay" class="overlay">
           <div class="panel pause-panel">
             <div class="pause-head">
-              <h2>Paused</h2>
-              <button id="resumeButton" class="primary-button compact" type="button">Resume</button>
+              <h2 data-i18n="paused">Paused</h2>
+              <div class="pause-actions">
+                <div class="language-toggle" aria-label="Language">
+                  <button class="lang-button active" type="button" data-lang="en">EN</button>
+                  <button class="lang-button" type="button" data-lang="zh">繁中</button>
+                </div>
+                <button id="resumeButton" class="primary-button compact" type="button" data-i18n="resume">Resume</button>
+              </div>
             </div>
             <div class="pause-grid">
               <section>
-                <h3>Weapons</h3>
+                <h3 data-i18n="weapons">Weapons</h3>
                 <div id="pauseWeapons" class="details-list"></div>
               </section>
               <section>
-                <h3>Accessories</h3>
+                <h3 data-i18n="accessories">Accessories</h3>
                 <div id="pauseAccessories" class="details-list"></div>
               </section>
             </div>
@@ -88,11 +98,11 @@
 
         <div id="gameOverOverlay" class="overlay">
           <div class="panel title-panel">
-            <h2>Mashed</h2>
+            <h2 data-i18n="mashed">Mashed</h2>
             <p id="finalStats"></p>
             <div class="button-row">
-              <button id="restartButton" class="primary-button" type="button">Try Again</button>
-              <button id="backToStartButton" class="primary-button secondary" type="button">Back to Start</button>
+              <button id="restartButton" class="primary-button" type="button" data-i18n="tryAgain">Try Again</button>
+              <button id="backToStartButton" class="primary-button secondary" type="button" data-i18n="backToStart">Back to Start</button>
             </div>
           </div>
         </div>

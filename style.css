@@ -245,9 +245,34 @@ canvas {
   gap: 12px;
 }
 
+.language-toggle,
+.pause-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.lang-button {
+  min-width: 54px;
+  border: 3px solid #172414;
+  color: var(--ink);
+  background: rgba(248, 243, 219, 0.78);
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 900;
+  padding: 7px 10px;
+}
+
+.lang-button.active {
+  background: var(--cool);
+}
+
 .primary-button:hover,
 .choice:hover,
-.icon-button:hover {
+.icon-button:hover,
+.lang-button:hover {
   transform: translate(2px, 2px);
   box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.25);
 }
@@ -417,6 +442,11 @@ canvas {
   }
 
   .pause-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .pause-actions {
     align-items: flex-start;
     flex-direction: column;
   }
