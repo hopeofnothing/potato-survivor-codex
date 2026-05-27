@@ -107,6 +107,11 @@ canvas {
   pointer-events: auto;
 }
 
+.audio-button {
+  width: 58px;
+  font-size: 13px;
+}
+
 .bars {
   display: grid;
   gap: 6px;

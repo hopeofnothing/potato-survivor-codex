@@ -22,6 +22,7 @@ const ui = {
   backToStartButton: document.querySelector("#backToStartButton"),
   resumeButton: document.querySelector("#resumeButton"),
   pauseButton: document.querySelector("#pauseButton"),
+  audioButton: document.querySelector("#audioButton"),
   langButtons: document.querySelectorAll("[data-lang]"),
 };
 
@@ -29,6 +30,15 @@ const keys = new Set();
 const pointer = { active: false, x: 0, y: 0 };
 const world = { width: 1280, height: 720 };
 let currentLang = "en";
+const audio = {
+  ctx: null,
+  master: null,
+  musicGain: null,
+  musicTimer: null,
+  musicStep: 0,
+  muted: false,
+  last: {},
+};
 
 const i18n = {
   en: {
@@ -46,6 +56,10 @@ const i18n = {
     hudLevel: "Level",
     hudTime: "Time",
     hudKos: "KOs",
+    soundOn: "Snd",
+    soundOff: "Off",
+    soundOnTitle: "Sound on",
+    soundOffTitle: "Sound off",
     emptySlot: "Empty slot",
     noItems: "No items equipped.",
     level: "level",
@@ -72,6 +86,10 @@ const i18n = {
     hudLevel: "等級",
     hudTime: "時間",
     hudKos: "擊倒",
+    soundOn: "聲音",
+    soundOff: "靜音",
+    soundOnTitle: "聲音開啟",
+    soundOffTitle: "聲音關閉",
     emptySlot: "空欄位",
     noItems: "尚未裝備物品。",
     level: "等級",
@@ -87,6 +105,133 @@ const i18n = {
 
 function tr(key) {
   return i18n[currentLang][key];
+}
+
+function ensureAudio() {
+  if (audio.ctx) {
+    if (audio.ctx.state === "suspended") audio.ctx.resume();
+    return true;
+  }
+
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return false;
+
+  audio.ctx = new AudioContext();
+  audio.master = audio.ctx.createGain();
+  audio.master.gain.value = audio.muted ? 0 : 0.28;
+  audio.master.connect(audio.ctx.destination);
+
+  audio.musicGain = audio.ctx.createGain();
+  audio.musicGain.gain.value = 0.16;
+  audio.musicGain.connect(audio.master);
+  return true;
+}
+
+function setMuted(muted) {
+  audio.muted = muted;
+  if (audio.master) audio.master.gain.setTargetAtTime(muted ? 0 : 0.28, audio.ctx.currentTime, 0.02);
+  updateAudioButton();
+}
+
+function updateAudioButton() {
+  ui.audioButton.textContent = audio.muted ? tr("soundOff") : tr("soundOn");
+  ui.audioButton.title = audio.muted ? tr("soundOffTitle") : tr("soundOnTitle");
+  ui.audioButton.setAttribute("aria-label", ui.audioButton.title);
+}
+
+function tone(freq, duration, type = "square", volume = 0.18, destination = audio.master, when = 0) {
+  if (!ensureAudio() || audio.muted) return;
+  const start = audio.ctx.currentTime + when;
+  const osc = audio.ctx.createOscillator();
+  const gain = audio.ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, start);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(volume, start + 0.012);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  osc.connect(gain);
+  gain.connect(destination);
+  osc.start(start);
+  osc.stop(start + duration + 0.03);
+}
+
+function noise(duration, volume = 0.14, filterFreq = 900) {
+  if (!ensureAudio() || audio.muted) return;
+  const length = Math.floor(audio.ctx.sampleRate * duration);
+  const buffer = audio.ctx.createBuffer(1, length, audio.ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < length; i += 1) data[i] = Math.random() * 2 - 1;
+
+  const source = audio.ctx.createBufferSource();
+  const filter = audio.ctx.createBiquadFilter();
+  const gain = audio.ctx.createGain();
+  filter.type = "bandpass";
+  filter.frequency.value = filterFreq;
+  gain.gain.setValueAtTime(volume, audio.ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.0001, audio.ctx.currentTime + duration);
+  source.buffer = buffer;
+  source.connect(filter);
+  filter.connect(gain);
+  gain.connect(audio.master);
+  source.start();
+}
+
+function throttledSound(name, ms, play) {
+  const now = performance.now();
+  if ((audio.last[name] || 0) + ms > now) return;
+  audio.last[name] = now;
+  play();
+}
+
+function playSound(name) {
+  if (name === "fries") return throttledSound("fries", 70, () => tone(620, 0.055, "square", 0.08));
+  if (name === "ketchup") return throttledSound("ketchup", 120, () => tone(190, 0.12, "sawtooth", 0.09));
+  if (name === "mash") return throttledSound("mash", 160, () => noise(0.11, 0.11, 420));
+  if (name === "tots") return throttledSound("tots", 120, () => {
+    tone(440, 0.045, "square", 0.06);
+    tone(560, 0.045, "square", 0.06, audio.master, 0.035);
+  });
+  if (name === "chip") return throttledSound("chip", 130, () => tone(760, 0.09, "sawtooth", 0.075));
+  if (name === "hit") return throttledSound("hit", 55, () => noise(0.04, 0.07, 1300));
+  if (name === "hurt") return throttledSound("hurt", 240, () => {
+    tone(180, 0.16, "sawtooth", 0.14);
+    noise(0.08, 0.1, 260);
+  });
+  if (name === "xp") return throttledSound("xp", 35, () => tone(880, 0.045, "triangle", 0.07));
+  if (name === "heal") return throttledSound("heal", 120, () => {
+    tone(620, 0.08, "triangle", 0.08);
+    tone(930, 0.12, "triangle", 0.08, audio.master, 0.08);
+  });
+  if (name === "level") return throttledSound("level", 400, () => {
+    tone(523, 0.09, "triangle", 0.1);
+    tone(659, 0.09, "triangle", 0.1, audio.master, 0.09);
+    tone(784, 0.14, "triangle", 0.1, audio.master, 0.18);
+  });
+  if (name === "select") return tone(520, 0.07, "square", 0.07);
+  if (name === "pause") return tone(300, 0.07, "triangle", 0.08);
+  if (name === "gameover") return throttledSound("gameover", 500, () => {
+    tone(260, 0.14, "sawtooth", 0.1);
+    tone(190, 0.22, "sawtooth", 0.1, audio.master, 0.14);
+  });
+}
+
+function startMusic() {
+  if (!ensureAudio() || audio.musicTimer) return;
+  const notes = [196, 247, 294, 247, 330, 294, 247, 220, 196, 247, 294, 370, 330, 294, 247, 220];
+  audio.musicTimer = setInterval(() => {
+    if (state.mode !== "playing" || audio.muted) return;
+    const note = notes[audio.musicStep % notes.length];
+    tone(note, 0.11, "triangle", 0.055, audio.musicGain);
+    if (audio.musicStep % 4 === 0) tone(note / 2, 0.16, "square", 0.035, audio.musicGain);
+    audio.musicStep += 1;
+  }, 230);
+}
+
+function stopMusic() {
+  if (!audio.musicTimer) return;
+  clearInterval(audio.musicTimer);
+  audio.musicTimer = null;
+  audio.musicStep = 0;
 }
 
 const weaponCatalog = {
@@ -260,6 +405,8 @@ function resizeCanvas() {
 }
 
 function startRun() {
+  ensureAudio();
+  startMusic();
   state = freshState();
   ui.startOverlay.classList.remove("active");
   ui.gameOverOverlay.classList.remove("active");
@@ -271,6 +418,7 @@ function startRun() {
 }
 
 function showStartScreen() {
+  stopMusic();
   state = freshState();
   ui.gameOverOverlay.classList.remove("active");
   ui.levelOverlay.classList.remove("active");
@@ -289,6 +437,7 @@ function applyTranslations() {
   for (const button of ui.langButtons) {
     button.classList.toggle("active", button.dataset.lang === currentLang);
   }
+  updateAudioButton();
   updateLoadout();
   updateHud();
   if (state?.mode === "paused") updatePauseDetails();
@@ -585,6 +734,7 @@ function useWeapon(weapon, dt) {
   const target = nearestEnemy();
 
   if (weapon.id === "fries" && target) {
+    playSound("fries");
     const count = 1 + Math.floor((level - 1) / 2) + bonus;
     for (let i = 0; i < count; i += 1) {
       const spread = (i - (count - 1) / 2) * 0.16;
@@ -620,6 +770,7 @@ function useWeapon(weapon, dt) {
   }
 
   if (weapon.id === "ketchup" && target) {
+    playSound("ketchup");
     const count = 1 + Math.floor(level / 3) + bonus;
     for (let i = 0; i < count; i += 1) {
       const aim = aimAt(target, 300, (i - (count - 1) / 2) * 0.24);
@@ -645,6 +796,7 @@ function useWeapon(weapon, dt) {
   }
 
   if (weapon.id === "mash") {
+    playSound("mash");
     const mineCount = level >= 8 ? 3 : 1;
     for (let i = 0; i < mineCount; i += 1) {
       const angle = -Math.PI / 2 + (Math.PI * 2 * i) / mineCount + state.elapsed;
@@ -669,6 +821,7 @@ function useWeapon(weapon, dt) {
   }
 
   if (weapon.id === "tots") {
+    playSound("tots");
     const count = 6 + Math.floor(level / 2) + bonus;
     for (let i = 0; i < count; i += 1) {
       const angle = (Math.PI * 2 * i) / count + state.elapsed * 0.6;
@@ -704,6 +857,7 @@ function useWeapon(weapon, dt) {
   }
 
   if (weapon.id === "chip" && target) {
+    playSound("chip");
     const count = 1 + Math.floor(level / 4) + bonus;
     for (let i = 0; i < count; i += 1) {
       const aim = aimAt(target, 440, (i - (count - 1) / 2) * 0.24);
@@ -769,6 +923,7 @@ function updateEnemies(dt) {
       player.hp -= enemy.damage;
       player.iFrames = 0.55;
       state.shake = 0.16;
+      playSound("hurt");
       if (player.hp <= 0) endRun();
     }
   }
@@ -904,6 +1059,7 @@ function handleCollisions() {
           continue;
         }
         enemy.hp -= projectile.damage;
+        playSound("hit");
         projectile.hit.add(enemy);
         projectile.pierce -= 1;
         if (projectile.pierce < 0) projectile.life = 0;
@@ -917,6 +1073,7 @@ function handleCollisions() {
       if (effect.hit.has(enemy)) continue;
       if (Math.hypot(effect.x - enemy.x, effect.y - enemy.y) < effect.radius + enemy.radius) {
         enemy.hp -= effect.damage;
+        playSound("hit");
         effect.hit.add(enemy);
       }
     }
@@ -955,6 +1112,7 @@ function collectGems(dt) {
     if (dist < player.radius + gem.radius) {
       player.xp += gem.value;
       gem.collected = true;
+      playSound("xp");
     }
   }
   state.gems = state.gems.filter((gem) => !gem.collected);
@@ -971,6 +1129,7 @@ function collectGems(dt) {
       player.hp = Math.min(player.maxHp, player.hp + heart.heal);
       heart.collected = true;
       state.effects.push({ kind: "heal", x: player.x, y: player.y, radius: 8, life: 0.28, color: "#ff7a7a" });
+      playSound("heal");
     }
   }
   state.hearts = state.hearts.filter((heart) => !heart.collected);
@@ -979,6 +1138,7 @@ function collectGems(dt) {
     player.xp -= player.xpToNext;
     player.level += 1;
     player.xpToNext = Math.floor(player.xpToNext * 1.22 + 6);
+    playSound("level");
     openLevelUp();
   }
 }
@@ -1102,6 +1262,7 @@ function shuffle(items) {
 }
 
 function applyChoice(choice) {
+  playSound("select");
   const list = choice.type === "weapon" ? state.weapons : state.accessories;
   const existing = getItem(list, choice.id);
   if (existing) {
@@ -1179,6 +1340,8 @@ function updateHud() {
 
 function endRun() {
   state.mode = "gameover";
+  stopMusic();
+  playSound("gameover");
   ui.pauseOverlay.classList.remove("active");
   updateFinalStats();
   ui.gameOverOverlay.classList.add("active");
@@ -1457,10 +1620,12 @@ function togglePause() {
     updatePauseDetails();
     ui.pauseOverlay.classList.add("active");
     ui.pauseButton.textContent = ">";
+    playSound("pause");
   } else if (state.mode === "paused") {
     state.mode = "playing";
     ui.pauseOverlay.classList.remove("active");
     ui.pauseButton.textContent = "Esc";
+    playSound("select");
   }
 }
 
@@ -1469,6 +1634,11 @@ ui.restartButton.addEventListener("click", startRun);
 ui.backToStartButton.addEventListener("click", showStartScreen);
 ui.resumeButton.addEventListener("click", togglePause);
 ui.pauseButton.addEventListener("click", togglePause);
+ui.audioButton.addEventListener("click", () => {
+  ensureAudio();
+  setMuted(!audio.muted);
+  playSound("select");
+});
 for (const button of ui.langButtons) {
   button.addEventListener("click", () => setLanguage(button.dataset.lang));
 }
