@@ -63,9 +63,9 @@ canvas {
 
 .joystick {
   position: absolute;
-  left: 18px;
-  bottom: 18px;
-  display: none;
+  left: 0;
+  top: 0;
+  display: block;
   width: 112px;
   height: 112px;
   border: 4px solid rgba(23, 36, 20, 0.8);
@@ -73,6 +73,14 @@ canvas {
   background: rgba(248, 243, 219, 0.28);
   pointer-events: auto;
   touch-action: none;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.92);
+  transition: opacity 90ms linear, transform 90ms linear;
+}
+
+.joystick.active {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
 }
 
 .joystick-knob {
@@ -442,10 +450,6 @@ canvas {
 
   .hud {
     inset: 8px 8px auto;
-  }
-
-  .joystick {
-    display: block;
   }
 
   .stat {

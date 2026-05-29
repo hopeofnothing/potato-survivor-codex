@@ -29,8 +29,7 @@ const ui = {
 };
 
 const keys = new Set();
-const pointer = { active: false, x: 0, y: 0 };
-const joystick = { active: false, id: null, x: 0, y: 0 };
+const joystick = { active: false, id: null, x: 0, y: 0, originX: 0, originY: 0 };
 const world = { width: 1280, height: 720 };
 const limits = {
   enemies: 180,
@@ -911,16 +910,6 @@ function updatePlayer(dt) {
     yMove += joystick.y;
   }
 
-  if (pointer.active) {
-    const dx = pointer.x - player.x;
-    const dy = pointer.y - player.y;
-    const dist = Math.hypot(dx, dy);
-    if (dist > 12) {
-      xMove += dx / dist;
-      yMove += dy / dist;
-    }
-  }
-
   const length = Math.hypot(xMove, yMove) || 1;
   const speed = player.speed + accessoryLevel("starch") * 22;
   player.x += (xMove / length) * speed * dt;
@@ -1613,19 +1602,10 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 
-function setPointer(event) {
-  const rect = canvas.getBoundingClientRect();
-  pointer.x = event.clientX - rect.left;
-  pointer.y = event.clientY - rect.top;
-}
-
 function updateJoystick(event) {
-  const rect = ui.joystick.getBoundingClientRect();
-  const centerX = rect.left + rect.width / 2;
-  const centerY = rect.top + rect.height / 2;
-  const dx = event.clientX - centerX;
-  const dy = event.clientY - centerY;
-  const max = rect.width * 0.32;
+  const dx = event.clientX - joystick.originX;
+  const dy = event.clientY - joystick.originY;
+  const max = ui.joystick.offsetWidth * 0.32;
   const dist = Math.hypot(dx, dy);
   const clamped = Math.min(max, dist);
   const angle = Math.atan2(dy, dx);
@@ -1642,6 +1622,9 @@ function resetJoystick() {
   joystick.id = null;
   joystick.x = 0;
   joystick.y = 0;
+  joystick.originX = 0;
+  joystick.originY = 0;
+  ui.joystick.classList.remove("active");
   ui.joystickKnob.style.transform = "translate(-50%, -50%)";
 }
 
@@ -1658,46 +1641,36 @@ window.addEventListener("keyup", (event) => {
 });
 
 canvas.addEventListener("pointerdown", (event) => {
-  pointer.active = true;
-  setPointer(event);
-});
-
-canvas.addEventListener("pointermove", setPointer);
-canvas.addEventListener("pointerup", () => {
-  pointer.active = false;
-});
-canvas.addEventListener("pointercancel", () => {
-  pointer.active = false;
-});
-
-ui.joystick.addEventListener("pointerdown", (event) => {
+  if (event.pointerType === "mouse") return;
   event.preventDefault();
-  event.stopPropagation();
   joystick.active = true;
   joystick.id = event.pointerId;
-  ui.joystick.setPointerCapture(event.pointerId);
+  joystick.originX = event.clientX;
+  joystick.originY = event.clientY;
+  ui.joystick.classList.add("active");
+  ui.joystick.style.left = `${event.clientX}px`;
+  ui.joystick.style.top = `${event.clientY}px`;
+  canvas.setPointerCapture(event.pointerId);
   updateJoystick(event);
 });
 
-ui.joystick.addEventListener("pointermove", (event) => {
+canvas.addEventListener("pointermove", (event) => {
   if (!joystick.active || event.pointerId !== joystick.id) return;
   event.preventDefault();
-  event.stopPropagation();
   updateJoystick(event);
 });
 
-ui.joystick.addEventListener("pointerup", (event) => {
+canvas.addEventListener("pointerup", (event) => {
   if (event.pointerId === joystick.id) resetJoystick();
 });
 
-ui.joystick.addEventListener("pointercancel", (event) => {
+canvas.addEventListener("pointercancel", (event) => {
   if (event.pointerId === joystick.id) resetJoystick();
 });
 
 function togglePause() {
   if (state.mode === "playing") {
     state.mode = "paused";
-    pointer.active = false;
     resetJoystick();
     updatePauseDetails();
     ui.pauseOverlay.classList.add("active");
