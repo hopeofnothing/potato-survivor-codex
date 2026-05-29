@@ -1668,6 +1668,10 @@ canvas.addEventListener("pointercancel", (event) => {
   if (event.pointerId === joystick.id) resetJoystick();
 });
 
+canvas.addEventListener("lostpointercapture", (event) => {
+  if (event.pointerId === joystick.id) resetJoystick();
+});
+
 function togglePause() {
   if (state.mode === "playing") {
     state.mode = "paused";
