@@ -18,6 +18,6 @@ Open `index.html` in a browser.
 ## Controls
 
 - Move: `WASD` or arrow keys.
-- Mobile/touch: press and drag on the game area.
+- Mobile/touch: use the virtual joystick.
 - Pause: `Esc`.
 - Sound: use the `Snd` button in the HUD.

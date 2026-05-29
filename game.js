@@ -23,12 +23,26 @@ const ui = {
   resumeButton: document.querySelector("#resumeButton"),
   pauseButton: document.querySelector("#pauseButton"),
   audioButton: document.querySelector("#audioButton"),
+  joystick: document.querySelector("#joystick"),
+  joystickKnob: document.querySelector("#joystickKnob"),
   langButtons: document.querySelectorAll("[data-lang]"),
 };
 
 const keys = new Set();
 const pointer = { active: false, x: 0, y: 0 };
+const joystick = { active: false, id: null, x: 0, y: 0 };
 const world = { width: 1280, height: 720 };
+const limits = {
+  enemies: 180,
+  projectiles: 260,
+  effects: 220,
+  gems: 260,
+  hearts: 18,
+};
+
+function capList(list, max) {
+  if (list.length > max) list.splice(0, list.length - max);
+}
 let currentLang = "en";
 const audio = {
   ctx: null,
@@ -644,6 +658,7 @@ function magnetRadius() {
 }
 
 function spawnEnemy() {
+  if (state.enemies.length >= limits.enemies) return;
   const side = Math.floor(Math.random() * 4);
   const margin = 45;
   let x;
@@ -714,6 +729,7 @@ function fireProjectile(config) {
     kind: config.kind,
     hit: new Set(),
   });
+  capList(state.projectiles, limits.projectiles);
 }
 
 function aimAt(enemy, speed, spread = 0) {
@@ -881,6 +897,7 @@ function useWeapon(weapon, dt) {
 
 function updatePlayer(dt) {
   const player = state.player;
+  player.hp = Math.min(player.hp, player.maxHp);
   let xMove = 0;
   let yMove = 0;
 
@@ -888,6 +905,11 @@ function updatePlayer(dt) {
   if (keys.has("ArrowRight") || keys.has("KeyD")) xMove += 1;
   if (keys.has("ArrowUp") || keys.has("KeyW")) yMove -= 1;
   if (keys.has("ArrowDown") || keys.has("KeyS")) yMove += 1;
+
+  if (joystick.active) {
+    xMove += joystick.x;
+    yMove += joystick.y;
+  }
 
   if (pointer.active) {
     const dx = pointer.x - player.x;
@@ -961,6 +983,7 @@ function updateProjectiles(dt) {
       projectile.y < world.height + 80
     );
   });
+  capList(state.projectiles, limits.projectiles);
 }
 
 function updateEffects(dt) {
@@ -979,6 +1002,7 @@ function updateEffects(dt) {
     }
   }
   state.effects = state.effects.filter((effect) => effect.life > 0);
+  capList(state.effects, limits.effects);
 }
 
 function createKetchupPuddle(projectile) {
@@ -1008,6 +1032,7 @@ function createKetchupPuddle(projectile) {
       color: "#de4f2f",
     });
   }
+  capList(state.effects, limits.effects);
 }
 
 function strongestSlowAt(x, y) {
@@ -1083,13 +1108,16 @@ function handleCollisions() {
   if (dead.length) {
     for (const enemy of dead) {
       state.kills += 1;
-      state.gems.push({ x: enemy.x, y: enemy.y, radius: 6, value: enemy.xp });
+      state.gems.push({ x: enemy.x, y: enemy.y, radius: 6, value: enemy.xp, life: 24 });
       if (rollHealthDrop()) {
-        state.hearts.push({ x: enemy.x, y: enemy.y, radius: 11, heal: 24 });
+        state.hearts.push({ x: enemy.x, y: enemy.y, radius: 11, heal: 24, life: 18 });
       }
       state.effects.push({ kind: "pop", x: enemy.x, y: enemy.y, radius: 4, life: 0.22, color: "#ffd45d" });
     }
     state.enemies = state.enemies.filter((enemy) => enemy.hp > 0);
+    capList(state.gems, limits.gems);
+    capList(state.hearts, limits.hearts);
+    capList(state.effects, limits.effects);
   }
 }
 
@@ -1102,6 +1130,7 @@ function rollHealthDrop() {
 function collectGems(dt) {
   const player = state.player;
   for (const gem of state.gems) {
+    gem.life -= dt;
     const dx = player.x - gem.x;
     const dy = player.y - gem.y;
     const dist = Math.hypot(dx, dy) || 1;
@@ -1115,9 +1144,11 @@ function collectGems(dt) {
       playSound("xp");
     }
   }
-  state.gems = state.gems.filter((gem) => !gem.collected);
+  state.gems = state.gems.filter((gem) => !gem.collected && gem.life > 0);
 
   for (const heart of state.hearts) {
+    heart.life -= dt;
+    if (player.hp >= player.maxHp) continue;
     const dx = player.x - heart.x;
     const dy = player.y - heart.y;
     const dist = Math.hypot(dx, dy) || 1;
@@ -1125,14 +1156,14 @@ function collectGems(dt) {
       heart.x += (dx / dist) * 340 * dt;
       heart.y += (dy / dist) * 340 * dt;
     }
-    if (dist < player.radius + heart.radius && player.hp < player.maxHp) {
+    if (dist < player.radius + heart.radius) {
       player.hp = Math.min(player.maxHp, player.hp + heart.heal);
       heart.collected = true;
       state.effects.push({ kind: "heal", x: player.x, y: player.y, radius: 8, life: 0.28, color: "#ff7a7a" });
       playSound("heal");
     }
   }
-  state.hearts = state.hearts.filter((heart) => !heart.collected);
+  state.hearts = state.hearts.filter((heart) => !heart.collected && heart.life > 0);
 
   while (player.xp >= player.xpToNext && state.mode === "playing") {
     player.xp -= player.xpToNext;
@@ -1588,6 +1619,32 @@ function setPointer(event) {
   pointer.y = event.clientY - rect.top;
 }
 
+function updateJoystick(event) {
+  const rect = ui.joystick.getBoundingClientRect();
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+  const dx = event.clientX - centerX;
+  const dy = event.clientY - centerY;
+  const max = rect.width * 0.32;
+  const dist = Math.hypot(dx, dy);
+  const clamped = Math.min(max, dist);
+  const angle = Math.atan2(dy, dx);
+  const knobX = Math.cos(angle) * clamped;
+  const knobY = Math.sin(angle) * clamped;
+
+  joystick.x = max ? knobX / max : 0;
+  joystick.y = max ? knobY / max : 0;
+  ui.joystickKnob.style.transform = `translate(calc(-50% + ${knobX}px), calc(-50% + ${knobY}px))`;
+}
+
+function resetJoystick() {
+  joystick.active = false;
+  joystick.id = null;
+  joystick.x = 0;
+  joystick.y = 0;
+  ui.joystickKnob.style.transform = "translate(-50%, -50%)";
+}
+
 window.addEventListener("keydown", (event) => {
   keys.add(event.code);
   if (event.code === "Escape" && !event.repeat) {
@@ -1613,10 +1670,35 @@ canvas.addEventListener("pointercancel", () => {
   pointer.active = false;
 });
 
+ui.joystick.addEventListener("pointerdown", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  joystick.active = true;
+  joystick.id = event.pointerId;
+  ui.joystick.setPointerCapture(event.pointerId);
+  updateJoystick(event);
+});
+
+ui.joystick.addEventListener("pointermove", (event) => {
+  if (!joystick.active || event.pointerId !== joystick.id) return;
+  event.preventDefault();
+  event.stopPropagation();
+  updateJoystick(event);
+});
+
+ui.joystick.addEventListener("pointerup", (event) => {
+  if (event.pointerId === joystick.id) resetJoystick();
+});
+
+ui.joystick.addEventListener("pointercancel", (event) => {
+  if (event.pointerId === joystick.id) resetJoystick();
+});
+
 function togglePause() {
   if (state.mode === "playing") {
     state.mode = "paused";
     pointer.active = false;
+    resetJoystick();
     updatePauseDetails();
     ui.pauseOverlay.classList.add("active");
     ui.pauseButton.textContent = ">";
