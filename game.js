@@ -395,6 +395,8 @@ function freshState() {
     spawnTimer: 0,
     enemyBudgetTimer: 0,
     shake: 0,
+    backgroundScrollX: 0,
+    backgroundScrollY: 0,
     player: {
       x: world.width / 2,
       y: world.height / 2,
@@ -920,6 +922,8 @@ function useWeapon(weapon, dt) {
 
 function updatePlayer(dt) {
   const player = state.player;
+  const previousX = player.x;
+  const previousY = player.y;
   player.hp = Math.min(player.hp, player.maxHp);
   let xMove = 0;
   let yMove = 0;
@@ -944,6 +948,8 @@ function updatePlayer(dt) {
   player.y += yMove * speed * dt;
   player.x = Math.max(player.radius, Math.min(world.width - player.radius, player.x));
   player.y = Math.max(player.radius, Math.min(world.height - player.radius, player.y));
+  state.backgroundScrollX += player.x - previousX;
+  state.backgroundScrollY += player.y - previousY;
   player.iFrames = Math.max(0, player.iFrames - dt);
 }
 
@@ -1577,6 +1583,10 @@ function rect(x, y, w, h) {
   ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
 }
 
+function positiveModulo(value, divisor) {
+  return ((value % divisor) + divisor) % divisor;
+}
+
 function drawEnemy(enemy) {
   ctx.fillStyle = "#172414";
   rect(enemy.x - enemy.radius, enemy.y - enemy.radius, enemy.radius * 2, enemy.radius * 2);
@@ -1597,17 +1607,20 @@ function drawBackground() {
   ctx.fillRect(0, 0, world.width, world.height);
   ctx.fillStyle = "rgba(25, 32, 22, 0.08)";
   const grid = 48;
-  const offset = (state.elapsed * 18) % grid;
+  const offsetX = positiveModulo(-state.backgroundScrollX, grid);
+  const offsetY = positiveModulo(-state.backgroundScrollY, grid);
   for (let x = -grid; x < world.width + grid; x += grid) {
-    rect(x + offset, 0, 3, world.height);
+    rect(x + offsetX, 0, 3, world.height);
   }
   for (let y = -grid; y < world.height + grid; y += grid) {
-    rect(0, y + offset, world.width, 3);
+    rect(0, y + offsetY, world.width, 3);
   }
   ctx.fillStyle = "rgba(248, 243, 219, 0.12)";
+  const markWidth = world.width + 80;
+  const markHeight = world.height + 80;
   for (let i = 0; i < 26; i += 1) {
-    const x = (i * 137 + state.elapsed * 9) % (world.width + 80) - 40;
-    const y = (i * 71 + state.elapsed * 5) % (world.height + 80) - 40;
+    const x = positiveModulo(i * 137 - state.backgroundScrollX, markWidth) - 40;
+    const y = positiveModulo(i * 71 - state.backgroundScrollY, markHeight) - 40;
     rect(x, y, 18, 6);
   }
 }
