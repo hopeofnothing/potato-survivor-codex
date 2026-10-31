@@ -260,7 +260,7 @@ const weaponCatalog = {
     id: "fries",
     name: "French Fries",
     zhName: "薯條",
-    icon: "F",
+    icon: "🍟",
     type: "weapon",
     description: "Throws crispy fries at the nearest enemy.",
     zhDescription: "朝最近的敵人投擲酥脆薯條。",
@@ -270,7 +270,7 @@ const weaponCatalog = {
     id: "ketchup",
     name: "Ketchup Burst",
     zhName: "番茄醬爆裂",
-    icon: "K",
+    icon: "🍅",
     type: "weapon",
     description: "Splats sticky sauce puddles that slow and damage enemies.",
     zhDescription: "濺出黏稠醬池，使敵人緩速並受到傷害。",
@@ -280,7 +280,7 @@ const weaponCatalog = {
     id: "mash",
     name: "Mash Mine",
     zhName: "薯泥地雷",
-    icon: "M",
+    icon: "💣",
     type: "weapon",
     description: "Drops hot mash at your position that bursts after a delay.",
     zhDescription: "留下熱薯泥，短暫延遲後爆開。",
@@ -290,7 +290,7 @@ const weaponCatalog = {
     id: "peeler",
     name: "Peeler Orbit",
     zhName: "削皮刀環繞",
-    icon: "P",
+    icon: "🌀",
     type: "weapon",
     description: "A spinning peeler circles the potato and shreds enemies.",
     zhDescription: "旋轉削皮刀環繞馬鈴薯並切碎敵人。",
@@ -300,7 +300,7 @@ const weaponCatalog = {
     id: "tots",
     name: "Tater Tots",
     zhName: "薯球散射",
-    icon: "T",
+    icon: "🥔",
     type: "weapon",
     description: "Sprays short-range tots in all directions.",
     zhDescription: "向四面八方噴射短距離薯球。",
@@ -310,7 +310,7 @@ const weaponCatalog = {
     id: "chip",
     name: "Potato Chip Saw",
     zhName: "洋芋片鋸刃",
-    icon: "C",
+    icon: "🔪",
     type: "weapon",
     description: "Fires wide chip blades that slice across the field.",
     zhDescription: "發射寬大的洋芋片刀刃，切穿戰場。",
@@ -323,7 +323,7 @@ const accessoryCatalog = {
     id: "salt",
     name: "Sea Salt",
     zhName: "海鹽",
-    icon: "S",
+    icon: "🧂",
     type: "accessory",
     description: "Adds weapon damage.",
     zhDescription: "增加武器傷害。",
@@ -333,7 +333,7 @@ const accessoryCatalog = {
     id: "butter",
     name: "Butter Jacket",
     zhName: "奶油外套",
-    icon: "B",
+    icon: "🧈",
     type: "accessory",
     description: "Raises max health and heals a little.",
     zhDescription: "提高最大生命，並恢復少量生命。",
@@ -343,7 +343,7 @@ const accessoryCatalog = {
     id: "starch",
     name: "Starch Boots",
     zhName: "澱粉靴",
-    icon: ">",
+    icon: "🥾",
     type: "accessory",
     description: "Moves faster through the chaos.",
     zhDescription: "在混亂中移動得更快。",
@@ -353,7 +353,7 @@ const accessoryCatalog = {
     id: "magnet",
     name: "Gravy Magnet",
     zhName: "肉汁磁鐵",
-    icon: "G",
+    icon: "🧲",
     type: "accessory",
     description: "Pulls XP from farther away.",
     zhDescription: "從更遠距離吸取經驗。",
@@ -363,7 +363,7 @@ const accessoryCatalog = {
     id: "timer",
     name: "Oven Timer",
     zhName: "烤箱計時器",
-    icon: "O",
+    icon: "⏱️",
     type: "accessory",
     description: "Weapons fire more often.",
     zhDescription: "讓武器更頻繁攻擊。",
@@ -373,7 +373,7 @@ const accessoryCatalog = {
     id: "basket",
     name: "Fryer Basket",
     zhName: "油炸籃",
-    icon: "+",
+    icon: "🧺",
     type: "accessory",
     description: "Adds one extra projectile or orbiting blade per level.",
     zhDescription: "每級增加一個投射物或環繞刀刃。",
@@ -1389,8 +1389,27 @@ function renderSlots(container, items, catalog) {
     const item = items[i];
     const slot = document.createElement("div");
     slot.className = `slot${item ? "" : " empty"}`;
-    slot.textContent = item ? `${catalog[item.id].icon}${item.level}` : "";
-    slot.title = item ? `${itemName(catalog[item.id])} ${tr("level")} ${item.level}` : tr("emptySlot");
+    if (item) {
+      const definition = catalog[item.id];
+      const icon = document.createElement("span");
+      icon.className = "slot-icon";
+      icon.setAttribute("aria-hidden", "true");
+      icon.textContent = definition.icon;
+
+      const name = document.createElement("span");
+      name.className = "slot-name";
+      name.textContent = itemName(definition);
+
+      const level = document.createElement("span");
+      level.className = "slot-level";
+      level.textContent = `${tr("lv")} ${item.level}`;
+
+      slot.append(icon, name, level);
+      slot.title = `${itemName(definition)} ${tr("level")} ${item.level}`;
+      slot.setAttribute("aria-label", slot.title);
+    } else {
+      slot.title = tr("emptySlot");
+    }
     container.append(slot);
   }
 }
