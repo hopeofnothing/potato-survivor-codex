@@ -1,5 +1,9 @@
 const canvas = document.querySelector("#game");
 const ctx = canvas.getContext("2d");
+const backgroundTexture = document.createElement("canvas");
+backgroundTexture.width = 1280;
+backgroundTexture.height = 720;
+const backgroundCtx = backgroundTexture.getContext("2d");
 
 const ui = {
   level: document.querySelector("#level"),
@@ -395,8 +399,6 @@ function freshState() {
     spawnTimer: 0,
     enemyBudgetTimer: 0,
     shake: 0,
-    backgroundScrollX: 0,
-    backgroundScrollY: 0,
     player: {
       x: world.width / 2,
       y: world.height / 2,
@@ -922,8 +924,6 @@ function useWeapon(weapon, dt) {
 
 function updatePlayer(dt) {
   const player = state.player;
-  const previousX = player.x;
-  const previousY = player.y;
   player.hp = Math.min(player.hp, player.maxHp);
   let xMove = 0;
   let yMove = 0;
@@ -948,8 +948,6 @@ function updatePlayer(dt) {
   player.y += yMove * speed * dt;
   player.x = Math.max(player.radius, Math.min(world.width - player.radius, player.x));
   player.y = Math.max(player.radius, Math.min(world.height - player.radius, player.y));
-  state.backgroundScrollX += player.x - previousX;
-  state.backgroundScrollY += player.y - previousY;
   player.iFrames = Math.max(0, player.iFrames - dt);
 }
 
@@ -1583,10 +1581,6 @@ function rect(x, y, w, h) {
   ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
 }
 
-function positiveModulo(value, divisor) {
-  return ((value % divisor) + divisor) % divisor;
-}
-
 function drawEnemy(enemy) {
   ctx.fillStyle = "#172414";
   rect(enemy.x - enemy.radius, enemy.y - enemy.radius, enemy.radius * 2, enemy.radius * 2);
@@ -1603,26 +1597,59 @@ function drawEnemy(enemy) {
 }
 
 function drawBackground() {
-  ctx.fillStyle = "#6fac4a";
-  ctx.fillRect(0, 0, world.width, world.height);
-  ctx.fillStyle = "rgba(25, 32, 22, 0.08)";
-  const grid = 48;
-  const offsetX = positiveModulo(-state.backgroundScrollX, grid);
-  const offsetY = positiveModulo(-state.backgroundScrollY, grid);
-  for (let x = -grid; x < world.width + grid; x += grid) {
-    rect(x + offsetX, 0, 3, world.height);
+  ctx.drawImage(backgroundTexture, 0, 0, world.width, world.height);
+}
+
+function buildBackgroundTexture() {
+  let seed = 41873;
+  const random = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  const patchColors = ["#649e43", "#73b34e", "#7ab653", "#61983f", "#84b957"];
+  const bladeColors = ["#5f963e", "#619a40", "#78b451", "#80b857", "#8abd5d"];
+
+  backgroundCtx.fillStyle = "#6fac4a";
+  backgroundCtx.fillRect(0, 0, backgroundTexture.width, backgroundTexture.height);
+
+  for (let i = 0; i < 92; i += 1) {
+    const centerX = random() * backgroundTexture.width;
+    const centerY = random() * backgroundTexture.height;
+    const color = patchColors[Math.floor(random() * patchColors.length)];
+    backgroundCtx.fillStyle = color;
+    backgroundCtx.globalAlpha = 0.16;
+    const pieces = 5 + Math.floor(random() * 9);
+    for (let piece = 0; piece < pieces; piece += 1) {
+      const width = 7 + Math.floor(random() * 20);
+      const height = 5 + Math.floor(random() * 14);
+      const x = centerX + (random() - 0.5) * 52;
+      const y = centerY + (random() - 0.5) * 38;
+      backgroundCtx.fillRect(Math.round(x), Math.round(y), width, height);
+    }
   }
-  for (let y = -grid; y < world.height + grid; y += grid) {
-    rect(0, y + offsetY, world.width, 3);
+
+  backgroundCtx.globalAlpha = 0.55;
+  for (let i = 0; i < 1450; i += 1) {
+    backgroundCtx.fillStyle = bladeColors[Math.floor(random() * bladeColors.length)];
+    const x = Math.floor(random() * backgroundTexture.width);
+    const y = Math.floor(random() * backgroundTexture.height);
+    const width = random() < 0.8 ? 2 : 3;
+    const height = 2 + Math.floor(random() * 5);
+    backgroundCtx.fillRect(x, y, width, height);
   }
-  ctx.fillStyle = "rgba(248, 243, 219, 0.12)";
-  const markWidth = world.width + 80;
-  const markHeight = world.height + 80;
-  for (let i = 0; i < 26; i += 1) {
-    const x = positiveModulo(i * 137 - state.backgroundScrollX, markWidth) - 40;
-    const y = positiveModulo(i * 71 - state.backgroundScrollY, markHeight) - 40;
-    rect(x, y, 18, 6);
+
+  for (let i = 0; i < 22; i += 1) {
+    const x = Math.floor(random() * (backgroundTexture.width - 8));
+    const y = Math.floor(random() * (backgroundTexture.height - 8));
+    backgroundCtx.globalAlpha = 0.7;
+    backgroundCtx.fillStyle = "#f3df8e";
+    backgroundCtx.fillRect(x + 3, y + 1, 2, 7);
+    backgroundCtx.fillRect(x + 1, y + 3, 6, 2);
+    backgroundCtx.fillStyle = "#fff1b6";
+    backgroundCtx.fillRect(x + 3, y + 3, 2, 2);
   }
+
+  backgroundCtx.globalAlpha = 1;
 }
 
 function drawOrbit() {
@@ -1878,6 +1905,7 @@ window.addEventListener("resize", () => {
 
 state = freshState();
 resizeCanvas();
+buildBackgroundTexture();
 updateLoadout();
 applyTranslations();
 draw();
