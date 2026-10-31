@@ -60,6 +60,8 @@ const i18n = {
     startRun: "Start Run",
     levelUp: "Level Up",
     paused: "Paused",
+    pauseGame: "Pause game",
+    resumeGame: "Resume game",
     resume: "Resume",
     weapons: "Weapons",
     accessories: "Accessories",
@@ -82,6 +84,8 @@ const i18n = {
     levelOne: "Level 1",
     current: "Current",
     next: "Next",
+    fallbackHeal: "Hearty Meal",
+    fallbackHealDescription: "Restore 35% of maximum health.",
     survived: (level, time, kills) => `Level ${level} potato survived ${time} and cleared ${kills} enemies.`,
   },
   zh: {
@@ -90,6 +94,8 @@ const i18n = {
     startRun: "開始遊戲",
     levelUp: "升級",
     paused: "暫停",
+    pauseGame: "暫停遊戲",
+    resumeGame: "繼續遊戲",
     resume: "繼續",
     weapons: "武器",
     accessories: "配件",
@@ -112,6 +118,8 @@ const i18n = {
     levelOne: "等級 1",
     current: "目前",
     next: "下一級",
+    fallbackHeal: "豐盛點心",
+    fallbackHealDescription: "恢復最大生命值的 35%。",
     survived: (level, time, kills) => `等級 ${level} 的馬鈴薯存活 ${time}，擊倒 ${kills} 名敵人。`,
   },
 };
@@ -274,7 +282,7 @@ const weaponCatalog = {
     zhName: "薯泥地雷",
     icon: "M",
     type: "weapon",
-    description: "Drops hot mash behind you that bursts after a delay.",
+    description: "Drops hot mash at your position that bursts after a delay.",
     zhDescription: "留下熱薯泥，短暫延遲後爆開。",
     maxLevel: 8,
   },
@@ -375,6 +383,8 @@ const accessoryCatalog = {
 
 let state;
 let lastTime = 0;
+let lastHudUpdate = 0;
+let frameRequest = null;
 let levelChoices = [];
 
 function freshState() {
@@ -409,12 +419,13 @@ function freshState() {
 
 function resizeCanvas() {
   const rect = canvas.getBoundingClientRect();
-  const scale = Math.min(window.devicePixelRatio || 1, 2);
-  canvas.width = Math.floor(rect.width * scale);
-  canvas.height = Math.floor(rect.height * scale);
-  ctx.setTransform(scale, 0, 0, scale, 0, 0);
-  world.width = rect.width;
-  world.height = rect.height;
+  const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.floor(rect.width * pixelRatio);
+  canvas.height = Math.floor(rect.height * pixelRatio);
+  const fit = Math.min(rect.width / world.width, rect.height / world.height);
+  const offsetX = (rect.width - world.width * fit) / 2;
+  const offsetY = (rect.height - world.height * fit) / 2;
+  ctx.setTransform(pixelRatio * fit, 0, 0, pixelRatio * fit, pixelRatio * offsetX, pixelRatio * offsetY);
 }
 
 function startRun() {
@@ -427,7 +438,10 @@ function startRun() {
   ui.pauseOverlay.classList.remove("active");
   ui.pauseButton.textContent = "Esc";
   state.mode = "playing";
+  updatePauseButtonLabel();
   updateLoadout();
+  lastTime = performance.now();
+  scheduleFrame();
 }
 
 function showStartScreen() {
@@ -439,7 +453,9 @@ function showStartScreen() {
   ui.startOverlay.classList.add("active");
   ui.pauseButton.textContent = "Esc";
   updateLoadout();
+  updatePauseButtonLabel();
   updateHud();
+  draw();
 }
 
 function applyTranslations() {
@@ -450,6 +466,7 @@ function applyTranslations() {
   for (const button of ui.langButtons) {
     button.classList.toggle("active", button.dataset.lang === currentLang);
   }
+  updatePauseButtonLabel();
   updateAudioButton();
   updateLoadout();
   updateHud();
@@ -461,6 +478,13 @@ function applyTranslations() {
 function setLanguage(lang) {
   currentLang = lang;
   applyTranslations();
+}
+
+function updatePauseButtonLabel() {
+  const paused = state?.mode === "paused";
+  const label = paused ? tr("resumeGame") : tr("pauseGame");
+  ui.pauseButton.title = label;
+  ui.pauseButton.setAttribute("aria-label", label);
 }
 
 function formatTime(seconds) {
@@ -547,12 +571,12 @@ function weaponStats(id, level, effective = false) {
         ? [
             `${1 + Math.floor(level / 3) + basket} 片環繞刀刃`,
             `${72 + level * 5}px 環繞半徑`,
-            `${Math.round((18 + level * 5) * damage)} 接觸傷害`,
+            `每片刀刃每秒 ${Math.round((18 + level * 5) * damage * 4.5)} 傷害`,
           ]
         : [
             `${1 + Math.floor(level / 3) + basket} orbiting blades`,
             `${72 + level * 5}px orbit radius`,
-            `${Math.round((18 + level * 5) * damage)} contact damage`,
+            `${Math.round((18 + level * 5) * damage * 4.5)} damage/sec per blade`,
           ];
     if (level >= 8) stats.push(currentLang === "zh" ? "進化：增加第二圈反向旋轉刀刃" : "evolution: adds a second counter-rotating orbit");
     return stats;
@@ -693,7 +717,6 @@ function spawnEnemy() {
     y,
     hp: base.hp * (1 + minutes * 0.55),
     maxHp: base.hp * (1 + minutes * 0.55),
-    knock: 0,
   });
 }
 
@@ -701,6 +724,7 @@ function nearestEnemy() {
   let best = null;
   let bestDist = Infinity;
   for (const enemy of state.enemies) {
+    if (enemy.x < 0 || enemy.x > world.width || enemy.y < 0 || enemy.y > world.height) continue;
     const dx = enemy.x - state.player.x;
     const dy = enemy.y - state.player.y;
     const dist = dx * dx + dy * dy;
@@ -910,10 +934,14 @@ function updatePlayer(dt) {
     yMove += joystick.y;
   }
 
-  const length = Math.hypot(xMove, yMove) || 1;
+  const length = Math.hypot(xMove, yMove);
+  if (length > 1) {
+    xMove /= length;
+    yMove /= length;
+  }
   const speed = player.speed + accessoryLevel("starch") * 22;
-  player.x += (xMove / length) * speed * dt;
-  player.y += (yMove / length) * speed * dt;
+  player.x += xMove * speed * dt;
+  player.y += yMove * speed * dt;
   player.x = Math.max(player.radius, Math.min(world.width - player.radius, player.x));
   player.y = Math.max(player.radius, Math.min(world.height - player.radius, player.y));
   player.iFrames = Math.max(0, player.iFrames - dt);
@@ -957,8 +985,15 @@ function updateProjectiles(dt) {
         projectile.hit.clear();
       }
     }
-    if (projectile.kind === "ketchup" && projectile.life <= 0 && !projectile.splatted) {
+    const outOfBounds =
+      projectile.x < -80 ||
+      projectile.x > world.width + 80 ||
+      projectile.y < -80 ||
+      projectile.y > world.height + 80;
+    if (projectile.kind === "ketchup" && (projectile.life <= 0 || outOfBounds) && !projectile.splatted) {
       projectile.splatted = true;
+      projectile.x = Math.max(0, Math.min(world.width, projectile.x));
+      projectile.y = Math.max(0, Math.min(world.height, projectile.y));
       createKetchupPuddle(projectile);
     }
   }
@@ -1097,17 +1132,41 @@ function handleCollisions() {
   if (dead.length) {
     for (const enemy of dead) {
       state.kills += 1;
-      state.gems.push({ x: enemy.x, y: enemy.y, radius: 6, value: enemy.xp, life: 24 });
+      addGemDrop({ x: enemy.x, y: enemy.y, radius: 6, value: enemy.xp, life: 24 });
       if (rollHealthDrop()) {
         state.hearts.push({ x: enemy.x, y: enemy.y, radius: 11, heal: 24, life: 18 });
       }
       state.effects.push({ kind: "pop", x: enemy.x, y: enemy.y, radius: 4, life: 0.22, color: "#ffd45d" });
     }
     state.enemies = state.enemies.filter((enemy) => enemy.hp > 0);
-    capList(state.gems, limits.gems);
     capList(state.hearts, limits.hearts);
     capList(state.effects, limits.effects);
   }
+}
+
+function addGemDrop(gem) {
+  if (state.gems.length < limits.gems) {
+    state.gems.push(gem);
+    return;
+  }
+
+  let nearest = state.gems[0];
+  let nearestDistance = Infinity;
+  for (const existing of state.gems) {
+    const dx = existing.x - gem.x;
+    const dy = existing.y - gem.y;
+    const distance = dx * dx + dy * dy;
+    if (distance < nearestDistance) {
+      nearest = existing;
+      nearestDistance = distance;
+    }
+  }
+
+  const combinedValue = nearest.value + gem.value;
+  nearest.x = (nearest.x * nearest.value + gem.x * gem.value) / combinedValue;
+  nearest.y = (nearest.y * nearest.value + gem.y * gem.value) / combinedValue;
+  nearest.value = combinedValue;
+  nearest.life = Math.max(nearest.life, gem.life);
 }
 
 function rollHealthDrop() {
@@ -1177,6 +1236,7 @@ function renderLevelChoices() {
     button.className = "choice";
     button.type = "button";
     button.innerHTML = `
+      <span class="choice-key">${ui.choices.children.length + 1}</span>
       <span class="choice-icon">${choice.icon}</span>
       <strong class="choice-name">${choiceTitle(choice)}</strong>
       <span class="choice-desc">${choiceDescription(choice)}</span>
@@ -1187,6 +1247,7 @@ function renderLevelChoices() {
 }
 
 function choiceTitle(choice) {
+  if (choice.kind === "fallback") return tr("fallbackHeal");
   const catalog = choice.type === "weapon" ? weaponCatalog[choice.id] : accessoryCatalog[choice.id];
   if (choice.kind === "upgrade") {
     const list = choice.type === "weapon" ? state.weapons : state.accessories;
@@ -1197,6 +1258,7 @@ function choiceTitle(choice) {
 }
 
 function choiceDescription(choice) {
+  if (choice.kind === "fallback") return tr("fallbackHealDescription");
   const catalog = choice.type === "weapon" ? weaponCatalog[choice.id] : accessoryCatalog[choice.id];
   if (choice.kind === "upgrade") {
     const list = choice.type === "weapon" ? state.weapons : state.accessories;
@@ -1269,6 +1331,9 @@ function buildChoices() {
     }
   }
 
+  if (!options.length) {
+    return [{ kind: "fallback", id: "heal", icon: "+" }];
+  }
   return shuffle(options).slice(0, 3);
 }
 
@@ -1283,6 +1348,15 @@ function shuffle(items) {
 
 function applyChoice(choice) {
   playSound("select");
+  if (choice.kind === "fallback") {
+    const player = state.player;
+    player.hp = Math.min(player.maxHp, player.hp + Math.ceil(player.maxHp * 0.35));
+    ui.levelOverlay.classList.remove("active");
+    state.mode = "playing";
+    lastTime = performance.now();
+    scheduleFrame();
+    return;
+  }
   const list = choice.type === "weapon" ? state.weapons : state.accessories;
   const existing = getItem(list, choice.id);
   if (existing) {
@@ -1300,6 +1374,8 @@ function applyChoice(choice) {
   updateLoadout();
   ui.levelOverlay.classList.remove("active");
   state.mode = "playing";
+  lastTime = performance.now();
+  scheduleFrame();
 }
 
 function updateLoadout() {
@@ -1351,11 +1427,16 @@ function renderDetails(container, items, catalog, type) {
 
 function updateHud() {
   const player = state.player;
-  ui.level.textContent = player.level;
-  ui.time.textContent = formatTime(state.elapsed);
-  ui.kills.textContent = state.kills;
-  ui.healthBar.style.width = `${Math.max(0, (player.hp / player.maxHp) * 100)}%`;
-  ui.xpBar.style.width = `${Math.min(100, (player.xp / player.xpToNext) * 100)}%`;
+  const level = String(player.level);
+  const time = formatTime(state.elapsed);
+  const kills = String(state.kills);
+  const healthWidth = `${Math.max(0, (player.hp / player.maxHp) * 100)}%`;
+  const xpWidth = `${Math.min(100, (player.xp / player.xpToNext) * 100)}%`;
+  if (ui.level.textContent !== level) ui.level.textContent = level;
+  if (ui.time.textContent !== time) ui.time.textContent = time;
+  if (ui.kills.textContent !== kills) ui.kills.textContent = kills;
+  if (ui.healthBar.style.width !== healthWidth) ui.healthBar.style.width = healthWidth;
+  if (ui.xpBar.style.width !== xpWidth) ui.xpBar.style.width = xpWidth;
 }
 
 function endRun() {
@@ -1593,13 +1674,26 @@ function draw() {
   ctx.restore();
 }
 
+function scheduleFrame() {
+  if (frameRequest === null) frameRequest = requestAnimationFrame(loop);
+}
+
 function loop(now) {
+  frameRequest = null;
+  if (document.hidden || !document.hasFocus() || state.mode !== "playing") {
+    lastTime = now;
+    return;
+  }
+
   const dt = Math.min(0.033, (now - lastTime) / 1000 || 0);
   lastTime = now;
   update(dt);
   draw();
-  updateHud();
-  requestAnimationFrame(loop);
+  if (now - lastHudUpdate >= 100) {
+    updateHud();
+    lastHudUpdate = now;
+  }
+  if (state.mode === "playing") scheduleFrame();
 }
 
 function updateJoystick(event) {
@@ -1611,9 +1705,12 @@ function updateJoystick(event) {
   const angle = Math.atan2(dy, dx);
   const knobX = Math.cos(angle) * clamped;
   const knobY = Math.sin(angle) * clamped;
+  const rawMagnitude = max ? clamped / max : 0;
+  const deadZone = 0.1;
+  const magnitude = rawMagnitude <= deadZone ? 0 : (rawMagnitude - deadZone) / (1 - deadZone);
 
-  joystick.x = max ? knobX / max : 0;
-  joystick.y = max ? knobY / max : 0;
+  joystick.x = Math.cos(angle) * magnitude;
+  joystick.y = Math.sin(angle) * magnitude;
   ui.joystickKnob.style.transform = `translate(calc(-50% + ${knobX}px), calc(-50% + ${knobY}px))`;
 }
 
@@ -1630,6 +1727,14 @@ function resetJoystick() {
 
 window.addEventListener("keydown", (event) => {
   keys.add(event.code);
+  if (state.mode === "levelup" && !event.repeat && /^(Digit|Numpad)[1-3]$/.test(event.code)) {
+    const choice = levelChoices[Number(event.code.slice(-1)) - 1];
+    if (choice) {
+      event.preventDefault();
+      applyChoice(choice);
+    }
+    return;
+  }
   if (event.code === "Escape" && !event.repeat) {
     event.preventDefault();
     togglePause();
@@ -1641,15 +1746,16 @@ window.addEventListener("keyup", (event) => {
 });
 
 canvas.addEventListener("pointerdown", (event) => {
-  if (event.pointerType === "mouse") return;
+  if (event.pointerType === "mouse" || joystick.active || state.mode !== "playing") return;
   event.preventDefault();
   joystick.active = true;
   joystick.id = event.pointerId;
   joystick.originX = event.clientX;
   joystick.originY = event.clientY;
   ui.joystick.classList.add("active");
-  ui.joystick.style.left = `${event.clientX}px`;
-  ui.joystick.style.top = `${event.clientY}px`;
+  const frame = document.querySelector(".game-frame").getBoundingClientRect();
+  ui.joystick.style.left = `${event.clientX - frame.left}px`;
+  ui.joystick.style.top = `${event.clientY - frame.top}px`;
   canvas.setPointerCapture(event.pointerId);
   updateJoystick(event);
 });
@@ -1672,19 +1778,51 @@ canvas.addEventListener("lostpointercapture", (event) => {
   if (event.pointerId === joystick.id) resetJoystick();
 });
 
+function pauseForFocusLoss() {
+  keys.clear();
+  resetJoystick();
+  lastTime = performance.now();
+  if (state.mode !== "playing") return;
+  state.mode = "paused";
+  updatePauseDetails();
+  ui.pauseOverlay.classList.add("active");
+  ui.pauseButton.textContent = ">";
+  updatePauseButtonLabel();
+  playSound("pause");
+}
+
+window.addEventListener("blur", pauseForFocusLoss);
+window.addEventListener("focus", () => {
+  lastTime = performance.now();
+  if (state.mode === "playing") scheduleFrame();
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    pauseForFocusLoss();
+  } else if (document.hasFocus() && state.mode === "playing") {
+    lastTime = performance.now();
+    scheduleFrame();
+  }
+});
+
 function togglePause() {
   if (state.mode === "playing") {
     state.mode = "paused";
+    keys.clear();
     resetJoystick();
     updatePauseDetails();
     ui.pauseOverlay.classList.add("active");
     ui.pauseButton.textContent = ">";
+    updatePauseButtonLabel();
     playSound("pause");
   } else if (state.mode === "paused") {
     state.mode = "playing";
     ui.pauseOverlay.classList.remove("active");
     ui.pauseButton.textContent = "Esc";
+    updatePauseButtonLabel();
     playSound("select");
+    lastTime = performance.now();
+    scheduleFrame();
   }
 }
 
@@ -1701,10 +1839,13 @@ ui.audioButton.addEventListener("click", () => {
 for (const button of ui.langButtons) {
   button.addEventListener("click", () => setLanguage(button.dataset.lang));
 }
-window.addEventListener("resize", resizeCanvas);
+window.addEventListener("resize", () => {
+  resizeCanvas();
+  draw();
+});
 
 state = freshState();
 resizeCanvas();
 updateLoadout();
 applyTranslations();
-requestAnimationFrame(loop);
+draw();

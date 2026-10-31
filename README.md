@@ -18,6 +18,7 @@ Open `index.html` in a browser.
 ## Controls
 
 - Move: `WASD` or arrow keys.
+- Choose a level-up option: `1`, `2`, or `3`.
 - Mobile/touch: touch anywhere on the game area to create a virtual joystick.
 - Pause: `Esc`.
 - Sound: use the `Snd` button in the HUD.

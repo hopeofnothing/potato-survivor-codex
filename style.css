@@ -425,6 +425,17 @@ canvas {
   line-height: 1;
 }
 
+.choice-key {
+  justify-self: end;
+  min-width: 24px;
+  padding: 2px 5px;
+  border: 2px solid #172414;
+  background: rgba(248, 243, 219, 0.8);
+  font-size: 12px;
+  line-height: 1.1;
+  text-align: center;
+}
+
 .choice-name {
   font-size: 19px;
   line-height: 1.1;
