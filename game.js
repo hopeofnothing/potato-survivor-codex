@@ -403,6 +403,7 @@ function freshState() {
       x: world.width / 2,
       y: world.height / 2,
       radius: 20,
+      drawRadius: 29,
       hp: 100,
       maxHp: 100,
       speed: 245,
@@ -946,8 +947,10 @@ function updatePlayer(dt) {
   const speed = player.speed + accessoryLevel("starch") * 22;
   player.x += xMove * speed * dt;
   player.y += yMove * speed * dt;
-  player.x = Math.max(player.radius, Math.min(world.width - player.radius, player.x));
-  player.y = Math.max(player.radius, Math.min(world.height - player.radius, player.y));
+  if (player.x > world.width + player.drawRadius) player.x = -player.drawRadius;
+  else if (player.x < -player.drawRadius) player.x = world.width + player.drawRadius;
+  if (player.y > world.height + player.drawRadius) player.y = -player.drawRadius;
+  else if (player.y < -player.drawRadius) player.y = world.height + player.drawRadius;
   player.iFrames = Math.max(0, player.iFrames - dt);
 }
 
@@ -1729,7 +1732,7 @@ function draw() {
 
   drawOrbit();
   for (const enemy of state.enemies) drawEnemy(enemy);
-  drawPixelPotato(state.player.x, state.player.y, 58, state.player.iFrames > 0 && Math.floor(state.elapsed * 20) % 2 === 0);
+  drawPixelPotato(state.player.x, state.player.y, state.player.drawRadius * 2, state.player.iFrames > 0 && Math.floor(state.elapsed * 20) % 2 === 0);
   ctx.restore();
 }
 
